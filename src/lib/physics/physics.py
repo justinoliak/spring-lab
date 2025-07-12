@@ -17,9 +17,9 @@ class SpringEngine:
     L0: float = 1.0         # natural spring length (m)
     mode: str = "1D"        # "1D" or "VECTOR"
     
-    # State
-    x: float = 0.2          # position
-    y: float = 0.0          # horizontal (VECTOR mode only)
+    # State (displacement from equilibrium)
+    x: float = 0.2          # displacement from equilibrium position
+    y: float = 0.0          # horizontal displacement (VECTOR mode only)
     vx: float = 0.0         # velocity x
     vy: float = 0.0         # velocity y
     t: float = 0.0          # time
@@ -38,9 +38,9 @@ class SpringEngine:
         }
     
     def _step_1d(self, dt: float):
-        """1D spring RK4 integration."""
+        """1D spring RK4 integration. x represents displacement from equilibrium."""
         def force(x, v):
-            return (-self.k * (x - self.L0) - self.c * v + self.m * self.g) / self.m
+            return (-self.k * x - self.c * v) / self.m
         
         # RK4
         k1_v = force(self.x, self.vx)
@@ -60,21 +60,22 @@ class SpringEngine:
         self.t += dt
     
     def _step_2d(self, dt: float):
-        """2D vector spring with angle constraint."""
+        """2D vector spring with gravity in Cartesian coordinates."""
         def forces(x, y, vx, vy):
-            # Spring force (radial)
+            # Current radius from origin
             r = math.hypot(x, y)
             if r < 1e-9:
                 ux, uy = 0.0, 1.0
             else:
                 ux, uy = x/r, y/r
             
+            # Spring force (radial, relative to natural length)
             F_spring = -self.k * (r - self.L0)
             # Radial damping only
             v_radial = vx*ux + vy*uy
             F_damp = -self.c * v_radial
             
-            # Total forces
+            # Total forces: spring + damping in radial direction, gravity in y
             Fx = (F_spring + F_damp) * ux
             Fy = (F_spring + F_damp) * uy + self.m * self.g
             
@@ -120,18 +121,14 @@ class SpringEngine:
         omega_n = math.sqrt(self.k / self.m)
         zeta = self.c / (2 * math.sqrt(self.k * self.m))
         
-        # Initial conditions (displacement from equilibrium)
+        # x and y are already displacement from equilibrium
         if self.mode == "1D":
-            # 1D: equilibrium at x = L0 + mg/k (spring stretched by weight)
-            x_eq = self.L0 + (self.m * self.g) / self.k
-            x0 = self.x - x_eq
+            x0 = self.x  # already displacement from equilibrium
             v0 = self.vx
         else:
-            # 2D: analytical solution is complex, use approximate linearization
-            # For small angles, treat as 1D vertical motion
-            r_eq = self.L0 + (self.m * self.g) / self.k  # equilibrium length
+            # 2D: use radial displacement from equilibrium
             r_current = math.hypot(self.x, self.y)
-            x0 = r_current - r_eq
+            x0 = r_current  # radial displacement from equilibrium
             # Calculate radial velocity component (v⃗ · r̂)
             if r_current > 1e-9:
                 v0 = (self.vx * self.x + self.vy * self.y) / r_current

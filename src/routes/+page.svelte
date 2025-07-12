@@ -7,7 +7,7 @@
 	import { simulationStore } from '../lib/stores/simulation';
 	
 	// LaTeX equations
-	const equation1D = 'm\\ddot{x} + c\\dot{x} + kx = mg';
+	const equation1D = 'm\\ddot{x} + c\\dot{x} + kx = 0';
 	const equation2D = 'm\\ddot{\\vec{r}} + c\\dot{r}\\hat{r} + k(r - L_0)\\hat{r} = m\\vec{g}';
 	
 	// Regime-specific solution equations
@@ -52,7 +52,7 @@
 	}
 
 	// Live equations with current values
-	$: liveODE1D = `${mass.toFixed(1)}\\ddot{x} + ${damping.toFixed(1)}\\dot{x} + ${springConstant.toFixed(1)}x = ${(mass * 9.81).toFixed(1)}`;
+	$: liveODE1D = `${mass.toFixed(1)}\\ddot{x} + ${damping.toFixed(1)}\\dot{x} + ${springConstant.toFixed(1)}x = 0`;
 	$: currentR = $simulationStore.position ? Math.hypot($simulationStore.position.x, $simulationStore.position.y) : 1.0;
 	$: liveODE2D = `${mass.toFixed(1)}\\ddot{\\vec{r}} + ${damping.toFixed(1)}\\dot{r}\\hat{r} + ${springConstant.toFixed(1)}(${currentR.toFixed(2)} - 1.0)\\hat{r} = ${mass.toFixed(1)}\\vec{g}`;
 	
@@ -156,13 +156,13 @@
 			clearTimeout(updateTimeout);
 			
 			// Wait a bit for everything to settle
-			await new Promise(resolve => setTimeout(resolve, 200));
+			await new Promise(resolve => setTimeout(resolve, 50));
 			
 			// Hard reset: reinitialize the worker and reset all state
 			await simulationStore.init();
 			
 			// Wait a bit more for worker to initialize
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise(resolve => setTimeout(resolve, 25));
 			
 			// Reset parameters to current UI values
 			simulationStore.updateParams({
@@ -172,7 +172,7 @@
 			});
 			
 			// Final reset of position to initial
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise(resolve => setTimeout(resolve, 25));
 			simulationStore.reset();
 			
 		} catch (error) {
