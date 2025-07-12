@@ -51,6 +51,18 @@
 		} else {
 			initStripChart();
 		}
+		
+		// If we have existing data when initializing (e.g., expanding from mini to full),
+		// populate the chart immediately
+		if (dataBuffer.length > 0) {
+			setTimeout(() => {
+				if (type === 'phase') {
+					updatePhasePortrait();
+				} else {
+					updateStripChart();
+				}
+			}, 100);
+		}
 	}
 
 	function initPhasePortrait() {
@@ -168,26 +180,40 @@
 	
 	function updatePhasePortrait() {
 		if (dataBuffer.length === 0) return;
+		if (!chartDiv || !Plotly) return;
 		
 		const positions = dataBuffer.map(d => d.position);
 		const velocities = dataBuffer.map(d => d.velocity);
 		
-		Plotly.restyle(chartDiv, {
-			x: [positions],
-			y: [velocities]
-		}, 0);
+		try {
+			Plotly.restyle(chartDiv, {
+				x: [positions],
+				y: [velocities]
+			}, 0);
+		} catch (error) {
+			console.warn('Chart update failed, reinitializing:', error);
+			// If restyle fails, reinitialize the chart
+			setTimeout(() => initChart(), 50);
+		}
 	}
 	
 	function updateStripChart() {
 		if (dataBuffer.length === 0) return;
+		if (!chartDiv || !Plotly) return;
 		
 		const times = dataBuffer.map(d => d.time);
 		const positions = dataBuffer.map(d => d.position);
 		
-		Plotly.restyle(chartDiv, {
-			x: [times],
-			y: [positions]
-		}, 0);
+		try {
+			Plotly.restyle(chartDiv, {
+				x: [times],
+				y: [positions]
+			}, 0);
+		} catch (error) {
+			console.warn('Chart update failed, reinitializing:', error);
+			// If restyle fails, reinitialize the chart
+			setTimeout(() => initChart(), 50);
+		}
 	}
 </script>
 
