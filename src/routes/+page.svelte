@@ -385,33 +385,32 @@
 
 				<!-- Initial Conditions Display -->
 				<div class="initial-conditions">
-					<h3>Initial Conditions</h3>
+					<h3>Initial Conditions (Physics Engine Values)</h3>
 					<div class="conditions-grid">
 						{#if $simulationStore.params?.mode === '1D'}
 							<div class="condition-item">
 								<span class="condition-label">x₀:</span>
-								<span class="condition-value">{$simulationStore.initialPosition?.x?.toFixed(3) || '0.000'} m</span>
+								<span class="condition-value">{(($simulationStore.initialPosition?.x || 0) - equilibrium1D).toFixed(3)} m</span>
 							</div>
 							<div class="condition-item">
 								<span class="condition-label">v₀:</span>
-								<span class="condition-value">{$simulationStore.initialVelocity?.x?.toFixed(3) || '0.000'} m/s</span>
+								<span class="condition-value">{($simulationStore.initialVelocity?.x || 0).toFixed(3)} m/s</span>
 							</div>
 						{:else}
 							<div class="condition-item">
-								<span class="condition-label">x₀:</span>
-								<span class="condition-value">{$simulationStore.initialPosition?.x?.toFixed(3) || '0.000'} m</span>
+								<span class="condition-label">r₀:</span>
+								<span class="condition-value">{Math.hypot($simulationStore.initialPosition?.x || 0, $simulationStore.initialPosition?.y || 0).toFixed(3)} m</span>
 							</div>
 							<div class="condition-item">
-								<span class="condition-label">y₀:</span>
-								<span class="condition-value">{$simulationStore.initialPosition?.y?.toFixed(3) || '0.000'} m</span>
-							</div>
-							<div class="condition-item">
-								<span class="condition-label">vₓ₀:</span>
-								<span class="condition-value">{$simulationStore.initialVelocity?.x?.toFixed(3) || '0.000'} m/s</span>
-							</div>
-							<div class="condition-item">
-								<span class="condition-label">vᵧ₀:</span>
-								<span class="condition-value">{$simulationStore.initialVelocity?.y?.toFixed(3) || '0.000'} m/s</span>
+								<span class="condition-label">v_r₀:</span>
+								<span class="condition-value">{(() => {
+									const x = $simulationStore.initialPosition?.x || 0;
+									const y = $simulationStore.initialPosition?.y || 0;
+									const vx = $simulationStore.initialVelocity?.x || 0;
+									const vy = $simulationStore.initialVelocity?.y || 0;
+									const r = Math.hypot(x, y);
+									return r > 1e-9 ? ((vx * x + vy * y) / r).toFixed(3) : '0.000';
+								})()} m/s</span>
 							</div>
 						{/if}
 					</div>

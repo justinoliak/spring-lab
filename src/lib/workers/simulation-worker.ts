@@ -403,8 +403,17 @@ print(f"Initial position set to: x={engine.x}, y={engine.y}")
 
 function setPosition(position: any) {
 	pyodide.runPython(`
-engine.x = ${position.x}
-engine.y = ${position.y}
+# Convert coordinates based on mode
+if engine.mode == "1D":
+    # 1D mode: convert absolute position to displacement from equilibrium
+    equilibrium = engine.L0 + (engine.m * engine.g) / engine.k  # L0 + mg/k
+    engine.x = ${position.x} - equilibrium  # displacement from equilibrium
+    engine.y = 0.0
+else:
+    # 2D mode: use absolute coordinates (physics engine handles equilibrium internally)
+    engine.x = ${position.x}
+    engine.y = ${position.y}
+
 engine.vx = 0.0
 engine.vy = 0.0
 engine.t = 0.0  # Reset time to 0
