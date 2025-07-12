@@ -18,16 +18,26 @@
 		// Dynamically import Plotly to avoid SSR issues
 		Plotly = await import('plotly.js-dist-min');
 		
-		initChart();
+		// Delay initialization slightly to ensure DOM is ready
+		setTimeout(() => {
+			initChart();
+		}, 50);
 		
 		// Subscribe to shared chart data
 		const unsubscribeChart = chartDataStore.subscribe(data => {
 			dataBuffer = data;
 			if (Plotly && chartDiv) {
-				if (type === 'phase') {
-					updatePhasePortrait();
+				// For expanded charts, always recreate to ensure proper sizing on re-open
+				if (!mini) {
+					setTimeout(() => {
+						initChart();
+					}, 10);
 				} else {
-					updateStripChart();
+					if (type === 'phase') {
+						updatePhasePortrait();
+					} else {
+						updateStripChart();
+					}
 				}
 			}
 		});
@@ -44,7 +54,14 @@
 	});
 
 	function initChart() {
-		if (!Plotly) return;
+		if (!Plotly || !chartDiv) return;
+		
+		// Clear any existing chart first to prevent conflicts
+		try {
+			Plotly.purge(chartDiv);
+		} catch (e) {
+			// Ignore purge errors
+		}
 		
 		if (type === 'phase') {
 			initPhasePortrait();
@@ -66,9 +83,13 @@
 	}
 
 	function initPhasePortrait() {
+		// Use existing data if available
+		const positions = dataBuffer.length > 0 ? dataBuffer.map(d => d.position) : [];
+		const velocities = dataBuffer.length > 0 ? dataBuffer.map(d => d.velocity) : [];
+		
 		const data = [{
-			x: [],
-			y: [],
+			x: positions,
+			y: velocities,
 			mode: 'lines+markers',
 			type: 'scatter',
 			name: 'Phase Portrait',
@@ -104,9 +125,13 @@
 	}
 
 	function initStripChart() {
+		// Use existing data if available
+		const times = dataBuffer.length > 0 ? dataBuffer.map(d => d.time) : [];
+		const positions = dataBuffer.length > 0 ? dataBuffer.map(d => d.position) : [];
+		
 		const data = [{
-			x: [],
-			y: [],
+			x: times,
+			y: positions,
 			mode: 'lines',
 			type: 'scatter',
 			name: 'Position',
