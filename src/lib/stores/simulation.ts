@@ -122,6 +122,9 @@ function createSimulationStore() {
 				};
 				
 				update(state => ({ ...state, worker }));
+				
+				// Send a test message to trigger Pyodide initialization immediately
+				worker.postMessage({ type: 'test' });
 			} catch (error) {
 				console.error('Failed to initialize simulation worker:', error);
 			}

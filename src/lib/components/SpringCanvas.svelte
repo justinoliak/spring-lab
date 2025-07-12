@@ -112,9 +112,7 @@
 			console.log('Ending drag, starting simulation');
 			isDragging = false;
 			// Ensure we start from the current position with clean state
-			setTimeout(() => {
-				simulationStore.start();
-			}, 10);
+			simulationStore.start();
 		}
 	}
 
