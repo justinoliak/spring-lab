@@ -136,6 +136,10 @@
 		// Only collect data when simulation is actually running (after mouse release)
 		if (!simData.isRunning) return;
 		
+		// Skip data collection for the first few timesteps to avoid glitches
+		// This ensures we only start recording after the simulation has properly stabilized
+		if (currentTime < 0.05) return; // Skip first 50ms of simulation
+		
 		// Skip some updates for performance (update every 3rd frame for mini charts)
 		updateCounter++;
 		if (mini && updateCounter % 3 !== 0) return;

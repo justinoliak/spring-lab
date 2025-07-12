@@ -382,6 +382,40 @@
 						</div>
 					</div>
 				{/if}
+
+				<!-- Initial Conditions Display -->
+				<div class="initial-conditions">
+					<h3>Initial Conditions</h3>
+					<div class="conditions-grid">
+						{#if $simulationStore.params?.mode === '1D'}
+							<div class="condition-item">
+								<span class="condition-label">x₀:</span>
+								<span class="condition-value">{$simulationStore.initialPosition?.x?.toFixed(3) || '0.000'} m</span>
+							</div>
+							<div class="condition-item">
+								<span class="condition-label">v₀:</span>
+								<span class="condition-value">{$simulationStore.initialVelocity?.x?.toFixed(3) || '0.000'} m/s</span>
+							</div>
+						{:else}
+							<div class="condition-item">
+								<span class="condition-label">x₀:</span>
+								<span class="condition-value">{$simulationStore.initialPosition?.x?.toFixed(3) || '0.000'} m</span>
+							</div>
+							<div class="condition-item">
+								<span class="condition-label">y₀:</span>
+								<span class="condition-value">{$simulationStore.initialPosition?.y?.toFixed(3) || '0.000'} m</span>
+							</div>
+							<div class="condition-item">
+								<span class="condition-label">vₓ₀:</span>
+								<span class="condition-value">{$simulationStore.initialVelocity?.x?.toFixed(3) || '0.000'} m/s</span>
+							</div>
+							<div class="condition-item">
+								<span class="condition-label">vᵧ₀:</span>
+								<span class="condition-value">{$simulationStore.initialVelocity?.y?.toFixed(3) || '0.000'} m/s</span>
+							</div>
+						{/if}
+					</div>
+				</div>
 			</div>
 		</section>
 	</div>
@@ -882,6 +916,45 @@
 
 	.values p {
 		margin: 5px 0;
+	}
+
+	.initial-conditions {
+		background: #f8f8f8;
+		border: 1px solid #ddd;
+		padding: 15px;
+		margin-bottom: 20px;
+		border-radius: 4px;
+	}
+
+	.conditions-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+		margin-top: 10px;
+	}
+
+	.condition-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		background: white;
+		padding: 6px 10px;
+		border: 1px solid #eee;
+		border-radius: 3px;
+		font-size: 12px;
+	}
+
+	.condition-label {
+		font-weight: bold;
+		color: #333;
+	}
+
+	.condition-value {
+		font-family: monospace;
+		color: #666;
+		background: #f0f0f0;
+		padding: 2px 6px;
+		border-radius: 2px;
 	}
 
 	@media (max-width: 768px) {

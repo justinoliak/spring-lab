@@ -20,6 +20,13 @@ export function addDataPoint(time: number, position: number, velocity: number) {
 			return [{ time, position, velocity }];
 		}
 		
+		// For the very first data point, adjust time to start from 0
+		// This ensures charts always start at t=0 regardless of when first data arrives
+		if (data.length === 0) {
+			lastDataTime = 0;
+			return [{ time: 0, position, velocity }];
+		}
+		
 		lastDataTime = time;
 		// Add new data point
 		return [...data, { time, position, velocity }];
