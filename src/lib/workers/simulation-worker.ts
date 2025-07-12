@@ -24,8 +24,11 @@ async function initializePyodide() {
 		
 		console.log('⏳ Loading physics module...');
 		
-		// Fetch the physics module from our project
-		const response = await fetch('/src/lib/physics/physics.py');
+		// Fetch the physics module from public directory
+		const response = await fetch('/physics.py');
+		if (!response.ok) {
+			throw new Error(`Failed to fetch physics.py: ${response.status} ${response.statusText}`);
+		}
 		const physicsCode = await response.text();
 		
 		// Execute the physics code
@@ -58,9 +61,19 @@ engine = SpringEngine()
 		
 	} catch (error) {
 		console.error('❌ Failed to initialize Pyodide worker:', error);
+		console.error('Error details:', {
+			message: error.message,
+			stack: error.stack,
+			type: error.constructor.name
+		});
 		postMessage({ 
 			type: 'error', 
-			message: `Failed to initialize physics engine: ${error.message}` 
+			message: `Failed to initialize physics engine: ${error.message}`,
+			errorDetails: {
+				message: error.message,
+				stack: error.stack,
+				type: error.constructor.name
+			}
 		});
 		isInitialized = false;
 		pyodide = null;

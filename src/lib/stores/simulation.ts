@@ -75,6 +75,23 @@ function createSimulationStore() {
 					const data = event.data;
 					messageCount++;
 					
+					// Handle different message types
+					if (data.type === 'error') {
+						console.error('🔥 Worker error:', data.message);
+						if (data.errorDetails) {
+							console.error('Error details:', data.errorDetails);
+						}
+						return;
+					}
+					
+					if (data.type === 'ready') {
+						console.log('✅ Physics worker ready:', data.message);
+						if (data.testResult) {
+							console.log('Test result:', data.testResult);
+						}
+						return;
+					}
+					
 					// Debug every 120 messages (roughly once per second at 120Hz)
 					if (messageCount % 120 === 0) {
 						console.log('📨 Worker message', messageCount, data.type, data.position);
