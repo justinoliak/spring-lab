@@ -1,0 +1,43 @@
+{
+  "hash": "d401ed0f",
+  "configHash": "4b092f27",
+  "lockfileHash": "0100a008",
+  "browserHash": "ff2c2176",
+  "optimized": {
+    "pyodide": {
+      "src": "../../node_modules/pyodide/pyodide.mjs",
+      "file": "pyodide.js",
+      "fileHash": "84f1b48d",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "node_child_process-KDMSWPXV": {
+      "file": "node_child_process-KDMSWPXV.js"
+    },
+    "node_url-VMBKG23O": {
+      "file": "node_url-VMBKG23O.js"
+    },
+    "node_fs-23V4EMJG": {
+      "file": "node_fs-23V4EMJG.js"
+    },
+    "promises-K5HYVQP3": {
+      "file": "promises-K5HYVQP3.js"
+    },
+    "node_vm-JYILYGKA": {
+      "file": "node_vm-JYILYGKA.js"
+    },
+    "node_path-NZFCBJUN": {
+      "file": "node_path-NZFCBJUN.js"
+    },
+    "node_crypto-2ATOA6Q4": {
+      "file": "node_crypto-2ATOA6Q4.js"
+    },
+    "ws-7YXJRPZJ": {
+      "file": "ws-7YXJRPZJ.js"
+    },
+    "chunk-VUNV25KB": {
+      "file": "chunk-VUNV25KB.js"
+    }
+  }
+}
