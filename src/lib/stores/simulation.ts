@@ -147,6 +147,12 @@ function createSimulationStore() {
 					};
 					console.log('📤 Sending to worker:', message);
 					state.worker.postMessage(message);
+					
+					// Auto-pause after 12 seconds
+					setTimeout(() => {
+						this.stop();
+						console.log('🛑 Simulation auto-paused after 12 seconds');
+					}, 12000);
 				} else {
 					console.error('❌ No worker available');
 				}

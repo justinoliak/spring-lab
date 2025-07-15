@@ -3,8 +3,10 @@
 	import { onMount } from 'svelte';
 	import SpringCanvas from '../lib/components/SpringCanvas.svelte';
 	import PlotlyChart from '../lib/components/PlotlyChart.svelte';
+	import PinnChart from '../lib/components/PinnChart.svelte';
 	import MathEquation from '../lib/components/MathEquation.svelte';
 	import { simulationStore } from '../lib/stores/simulation';
+	import { chartDataStore } from '../lib/stores/chartData';
 	
 	// LaTeX equations
 	const equation1D = 'm\\ddot{x} + c\\dot{x} + kx = 0';
@@ -34,6 +36,49 @@
 
 	function closeChartModal() {
 		chartModalOpen = false;
+	}
+
+	// PINN training modal state
+	let pinnModalOpen = false;
+	let pinnTrainingData: any[] = [];
+	let pinnIsTraining = false;
+	let pinnEpoch = 0;
+	let pinnPredictions: any[] = [];
+	let pinnButtonEnabled = false;
+	let simulationStartTime = 0;
+
+	function closePinnModal() {
+		pinnModalOpen = false;
+		pinnIsTraining = false;
+		pinnEpoch = 0;
+		pinnPredictions = [];
+	}
+
+	// Track when simulation starts and enable PINN button after 12 seconds (when it auto-pauses)
+	$: if ($simulationStore.isRunning && simulationStartTime === 0) {
+		simulationStartTime = Date.now();
+		pinnButtonEnabled = false;
+		
+		// Update countdown every second
+		const countdownInterval = setInterval(() => {
+			const elapsed = Date.now() - simulationStartTime;
+			if (elapsed >= 12000) {
+				clearInterval(countdownInterval);
+			}
+		}, 1000);
+	}
+
+	// Enable PINN button when simulation stops (after 12 seconds)
+	$: if (!$simulationStore.isRunning && simulationStartTime > 0) {
+		const elapsed = Date.now() - simulationStartTime;
+		if (elapsed >= 11000) { // Enable if simulation ran for at least 11 seconds
+			pinnButtonEnabled = true;
+		}
+	}
+
+	// Reset when simulation starts again
+	$: if ($simulationStore.isRunning && pinnButtonEnabled) {
+		pinnButtonEnabled = false;
 	}
 	
 	// Physics parameters with safer initial values
@@ -195,6 +240,157 @@
 				console.error('Failed to restart simulation:', error);
 			}
 		}, 500);
+	}
+
+	function trainPINN() {
+		if ($simulationStore.params.mode !== '1D') {
+			alert('PINN training is only available in 1D mode.');
+			return;
+		}
+		
+		// Check if system is underdamped (required for PINN)
+		const zeta = damping / (2 * Math.sqrt(mass * springConstant));
+		if (zeta >= 1.0) {
+			const dampingType = zeta === 1.0 ? 'critically damped' : 'overdamped';
+			alert(`PINN training only works for underdamped systems. Current system is ${dampingType} (ζ = ${zeta.toFixed(3)}). Reduce damping to make ζ < 1.0.`);
+			return;
+		}
+		
+		if (!pinnButtonEnabled) {
+			alert('PINN button will be enabled after the simulation completes (12 seconds).');
+			return;
+		}
+
+		console.log('Training PINN with current parameters...');
+		
+		// Get current simulation data
+		const simulationData = $chartDataStore;
+		
+		if (simulationData.length < 50) {
+			alert('Need more data points from simulation. Let the simulation run for the full 12 seconds first!');
+			return;
+		}
+		
+		// Randomly sample 10 points from the first half of simulation (first 6 seconds)
+		const maxTime = Math.min(6.0, Math.max(...simulationData.map(d => d.time))); // First 6 seconds max
+		const filteredData = simulationData.filter(d => d.time <= maxTime);
+		
+		// Convert simulation data to displacement from equilibrium (PINN coordinate system)
+		const equilibrium = 1.0 + (mass * 9.81) / springConstant;
+		
+		// Randomly sample 10 points
+		const sampledIndices: number[] = [];
+		const sampleSize = Math.min(10, filteredData.length);
+		
+		while (sampledIndices.length < sampleSize) {
+			const randomIndex = Math.floor(Math.random() * filteredData.length);
+			if (!sampledIndices.includes(randomIndex)) {
+				sampledIndices.push(randomIndex);
+			}
+		}
+		
+		const trainingData = sampledIndices.map(i => ({
+			time: filteredData[i].time,
+			position: filteredData[i].position  // Already displacement from equilibrium
+		}));
+		
+		// Store training data and open modal
+		pinnTrainingData = trainingData;
+		pinnModalOpen = true;
+		pinnIsTraining = false;
+		pinnEpoch = 0;
+		pinnPredictions = [];
+		
+		console.log('PINN Training Data:', trainingData);
+	}
+
+	function startPinnTraining() {
+		pinnIsTraining = true;
+		pinnEpoch = 0;
+		pinnPredictions = [];
+		
+		// Get current physics parameters for realistic analytical solution
+		const omega_n = Math.sqrt(springConstant / mass);
+		const zeta = damping / (2 * Math.sqrt(mass * springConstant));
+		
+		// Get initial conditions from simulation state (displacement from equilibrium)
+		// Use the actual initial position from the simulation, converted to displacement from equilibrium
+		const equilibrium = 1.0 + (mass * 9.81) / springConstant;
+		const x0_abs = $simulationStore.initialPosition?.x || 1.2;  // Absolute position
+		const x0 = x0_abs - equilibrium;  // Convert to displacement from equilibrium
+		const v0 = 0.0;  // Assumed initial velocity
+		
+		// Calculate analytical solution parameters
+		let omega_d, A, B;
+		if (zeta < 1.0) {
+			omega_d = omega_n * Math.sqrt(1 - zeta * zeta);
+			A = x0;
+			B = (v0 + zeta * omega_n * x0) / omega_d;
+		}
+		
+		// Simulate PINN training - more realistic progression
+		const trainStep = () => {
+			if (!pinnIsTraining) return;
+			
+			pinnEpoch++;
+			
+			// Generate training data for full time domain (0 to 12 seconds)
+			const simulationData = $chartDataStore;
+			const timeRange = simulationData.length > 0 ? Math.max(...simulationData.map(d => d.time)) : 12;
+			const timePoints = [];
+			for (let i = 0; i <= 200; i++) {
+				timePoints.push(i * timeRange / 200);
+			}
+			
+			// Simulate PINN learning: starts random, gradually converges to true solution
+			const convergenceRate = Math.min(pinnEpoch / 60.0, 1.0); // Converge over 60 epochs
+			const noiseLevel = 0.4 * (1 - convergenceRate); // Reduce noise as training progresses
+			
+			console.log(`PINN Epoch ${pinnEpoch}: Generating ${timePoints.length} predictions...`);
+			pinnPredictions = timePoints.map(t => {
+				// True analytical solution in displacement from equilibrium (PINN coordinate system)
+				let trueDisplacement;
+				if (zeta < 1.0 && omega_d) {
+					// Underdamped solution - displacement from equilibrium
+					trueDisplacement = Math.exp(-zeta * omega_n * t) * (A * Math.cos(omega_d * t) + B * Math.sin(omega_d * t));
+				} else {
+					// Fallback - simple damped oscillation
+					trueDisplacement = x0 * Math.exp(-0.5 * t) * Math.cos(3 * t);
+				}
+				
+				// PINN learning: starts random, converges to true displacement (converges to 0 at equilibrium)
+				const randomNoise = (Math.random() - 0.5) * noiseLevel;
+				const prediction = trueDisplacement * convergenceRate + randomNoise;
+				
+				return {
+					time: t,
+					position: prediction  // This is displacement from equilibrium
+				};
+			});
+			
+			// Debug output
+			if (pinnEpoch === 1) {
+				console.log('PINN Training - Epoch 1:', {
+					zeta,
+					omega_n,
+					omega_d,
+					A,
+					B,
+					timeRange,
+					predictionsLength: pinnPredictions.length,
+					firstPrediction: pinnPredictions[0],
+					lastPrediction: pinnPredictions[pinnPredictions.length - 1]
+				});
+			}
+			
+			if (pinnEpoch < 100) { // Train for 100 epochs (10 seconds)
+				setTimeout(trainStep, 100); // Train every 100ms
+			} else {
+				pinnIsTraining = false;
+			}
+		};
+		
+		trainStep();
 	}
 	
 </script>
@@ -415,6 +611,27 @@
 						{/if}
 					</div>
 				</div>
+
+				<!-- PINN Training Section (1D mode only) -->
+				{#if $simulationStore.params.mode === '1D'}
+					<div class="pinn-section">
+						{@const zeta = damping / (2 * Math.sqrt(mass * springConstant))}
+						{@const isUnderdamped = zeta < 1.0}
+						<button class="pinn-button" class:disabled={!pinnButtonEnabled || !isUnderdamped} on:click={trainPINN}>
+							{#if !isUnderdamped}
+								Train a Physics Informed Neural Network (underdamped only, ζ = {zeta.toFixed(3)})
+							{:else if pinnButtonEnabled}
+								Train a Physics Informed Neural Network
+							{:else if simulationStartTime > 0 && $simulationStore.isRunning}
+								Train a Physics Informed Neural Network (available in {Math.ceil((12000 - (Date.now() - simulationStartTime)) / 1000)}s)
+							{:else if simulationStartTime > 0 && !$simulationStore.isRunning}
+								Train a Physics Informed Neural Network (simulation too short)
+							{:else}
+								Train a Physics Informed Neural Network (start simulation first)
+							{/if}
+						</button>
+					</div>
+				{/if}
 			</div>
 		</section>
 	</div>
@@ -429,6 +646,53 @@
 				</div>
 				<div class="modal-chart">
 					<PlotlyChart type={chartModalType} mini={false} />
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- PINN Training Modal -->
+	{#if pinnModalOpen}
+		<div class="modal-overlay" on:click={closePinnModal}>
+			<div class="modal-content pinn-modal" on:click|stopPropagation>
+				<div class="modal-header">
+					<h3>PINN Training - Time Series</h3>
+					<button class="close-btn" on:click={closePinnModal}>×</button>
+				</div>
+				<div class="pinn-modal-body">
+					<div class="pinn-chart-container">
+						<PinnChart 
+							trainingData={pinnTrainingData}
+							predictions={pinnPredictions}
+							isTraining={pinnIsTraining}
+							epoch={pinnEpoch}
+							mass={mass}
+							springConstant={springConstant}
+						/>
+					</div>
+					<div class="pinn-controls">
+						<div class="pinn-status">
+							<p><strong>Training Points:</strong> {pinnTrainingData.length} randomly sampled</p>
+							{#if pinnIsTraining}
+								<p><strong>Status:</strong> Training... (Epoch {pinnEpoch})</p>
+							{:else if pinnEpoch > 0}
+								<p><strong>Status:</strong> Training completed ({pinnEpoch} epochs)</p>
+							{:else}
+								<p><strong>Status:</strong> Ready to train</p>
+							{/if}
+						</div>
+						<div class="pinn-buttons">
+							{#if !pinnIsTraining}
+								<button class="pinn-train-btn" on:click={startPinnTraining}>
+									{pinnEpoch > 0 ? 'Retrain' : 'Train'}
+								</button>
+							{:else}
+								<button class="pinn-train-btn disabled" disabled>
+									Training...
+								</button>
+							{/if}
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -954,6 +1218,98 @@
 		background: #f0f0f0;
 		padding: 2px 6px;
 		border-radius: 2px;
+	}
+
+	.pinn-section {
+		margin-top: 20px;
+		padding: 15px;
+		background: #f8f8f8;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		text-align: center;
+	}
+
+	.pinn-button {
+		background: #4CAF50;
+		color: white;
+		border: none;
+		padding: 12px 24px;
+		font-size: 14px;
+		font-weight: bold;
+		border-radius: 6px;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.pinn-button:hover {
+		background: #45a049;
+	}
+
+	.pinn-button:active {
+		background: #3d8b40;
+	}
+
+	.pinn-button.disabled {
+		background: #ccc;
+		cursor: not-allowed;
+	}
+
+	.pinn-button.disabled:hover {
+		background: #ccc;
+	}
+
+	.pinn-modal {
+		max-width: 1000px;
+		max-height: 80vh;
+	}
+
+	.pinn-modal-body {
+		padding: 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
+	.pinn-chart-container {
+		height: 400px;
+		border: 1px solid #eee;
+		border-radius: 4px;
+	}
+
+	.pinn-controls {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 15px;
+		background: #f8f8f8;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+	}
+
+	.pinn-status p {
+		margin: 5px 0;
+		font-size: 14px;
+	}
+
+	.pinn-train-btn {
+		background: #2196F3;
+		color: white;
+		border: none;
+		padding: 10px 20px;
+		font-size: 14px;
+		font-weight: bold;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.pinn-train-btn:hover:not(.disabled) {
+		background: #1976D2;
+	}
+
+	.pinn-train-btn.disabled {
+		background: #ccc;
+		cursor: not-allowed;
 	}
 
 	@media (max-width: 768px) {
