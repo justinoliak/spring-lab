@@ -614,9 +614,9 @@
 
 				<!-- PINN Training Section (1D mode only) -->
 				{#if $simulationStore.params.mode === '1D'}
+					{@const zeta = damping / (2 * Math.sqrt(mass * springConstant))}
+					{@const isUnderdamped = zeta < 1.0}
 					<div class="pinn-section">
-						{@const zeta = damping / (2 * Math.sqrt(mass * springConstant))}
-						{@const isUnderdamped = zeta < 1.0}
 						<button class="pinn-button" class:disabled={!pinnButtonEnabled || !isUnderdamped} on:click={trainPINN}>
 							{#if !isUnderdamped}
 								Train a Physics Informed Neural Network (underdamped only, ζ = {zeta.toFixed(3)})
